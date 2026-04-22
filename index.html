@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Expense Calculator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @keyframes blinker {
+            0% { background-color: #7f1d1d; } /* red-900 */
+            33% { background-color: #7c2d12; } /* orange-900 */
+            66% { background-color: #14532d; } /* green-900 */
+            100% { background-color: #7f1d1d; }
+        }
+        .theme-blink {
+            animation: blinker 1.5s linear infinite;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body id="app-body" class="bg-indigo-950 text-indigo-50 min-h-screen font-sans transition-colors duration-500 flex flex-col items-center py-8 px-4">
+
+    <!-- POPUP MODAL -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/60 items-center justify-center z-50 p-4 backdrop-blur-sm flex">
+        <div id="modal-content" class="max-w-sm w-full rounded-2xl p-6 shadow-2xl text-center transform scale-100 transition-all bg-orange-600 text-white">
+            <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 opacity-90"></i>
+            <h3 class="text-xl font-bold mb-2">Budget Alert!</h3>
+            <p id="modal-message" class="mb-6 opacity-90"></p>
+            <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white px-8 py-2 rounded-full font-semibold transition-colors">
+                Understood
+            </button>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <div class="w-full max-w-md flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">Wallet</h1>
+            <p class="opacity-70 text-sm">Daily Expense Tracker</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="cycleCurrency()" class="theme-card px-3 py-2 rounded-lg font-bold text-sm shadow-lg transition-colors flex items-center gap-1 hover:bg-white/10 border">
+                <i data-lucide="dollar-sign" class="w-4 h-4"></i> <span id="currency-label">MMK</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- DASHBOARD WIDGETS -->
+    <div class="w-full max-w-md space-y-4 mb-8">
+        <!-- Main Balance Card -->
+        <div class="theme-card p-6 rounded-3xl border shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+                <i data-lucide="wallet" class="w-32 h-32"></i>
+            </div>
+            <p class="opacity-80 text-sm font-medium mb-1">Remaining Monthly Balance</p>
+            <h2 id="balance-val" class="text-4xl font-black mb-4">Ks 0</h2>
+            
+            <div class="grid grid-cols-2 gap-4 mt-6 border-t border-white/10 pt-4">
+                <div>
+                    <p class="text-xs opacity-70 mb-1">Total Limit</p>
+                    <p id="total-limit-val" class="font-semibold">Ks 0</p>
+                </div>
+                <div>
+                    <p class="text-xs opacity-70 mb-1">This Month Income</p>
+                    <p id="month-income-val" class="font-semibold text-green-400">+Ks 0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget Breakdown -->
+        <div class="grid grid-cols-2 gap-4">
+            <div class="theme-card p-4 rounded-2xl border">
+                <p class="text-xs opacity-70 mb-1">Weekly Budget Limit</p>
+                <p id="weekly-limit-val" class="text-lg font-bold">Ks 0</p>
+            </div>
+            <div class="theme-card p-4 rounded-2xl border">
+                <p class="text-xs opacity-70 mb-1">Daily Budget Limit</p>
+                <p id="daily-limit-val" class="text-lg font-bold">Ks 0</p>
+            </div>
+        </div>
+
+        <!-- Daily Tracker Card -->
+        <div class="theme-card p-5 rounded-2xl border relative overflow-hidden">
+            <div class="flex justify-between items-end mb-2">
+                <div>
+                    <p class="text-sm opacity-80">Today's Expense</p>
+                    <p id="daily-expense-val" class="text-2xl font-bold">Ks 0</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm opacity-80">Usage</p>
+                    <p id="daily-usage-val" class="text-xl font-black">0.0%</p>
+                </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="h-3 w-full bg-black/40 rounded-full overflow-hidden mt-3">
+                <div id="progress-bar" class="h-full transition-all duration-700 rounded-full bg-purple-400" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABS & MAIN ACTION AREA -->
+    <div class="w-full max-w-md">
+        <div class="theme-card flex rounded-2xl p-1 mb-6 border">
+            <button id="tab-outcome" onclick="setTab('outcome')" class="tab-btn theme-accent flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all">
+                <i data-lucide="minus-circle" class="w-4 h-4"></i> Expense
+            </button>
+            <button id="tab-income" onclick="setTab('income')" class="tab-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/10 opacity-70 hover:opacity-100">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Income
+            </button>
+            <button id="tab-history" onclick="setTab('history')" class="tab-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/10 opacity-70 hover:opacity-100">
+                <i data-lucide="history" class="w-4 h-4"></i> History
+            </button>
+        </div>
+
+        <!-- TAB CONTENT -->
+        <div class="theme-card p-6 rounded-3xl border shadow-xl">
+            
+            <!-- FORM VIEW -->
+            <form id="view-form" onsubmit="handleTransactionSubmit(event)" class="space-y-4">
+                <h3 id="form-title" class="text-lg font-bold mb-4">Add Expense</h3>
+                
+                <div>
+                    <label id="lbl-amount" class="block text-xs opacity-70 mb-2 uppercase tracking-wider">Amount (MMK)</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-xl opacity-50" id="currency-symbol">Ks</div>
+                        <input type="number" step="any" id="input-amount" class="w-full bg-black/20 border border-white/20 rounded-xl pl-12 pr-4 py-4 text-2xl font-bold text-white placeholder-white/20 outline-none focus:border-white/50 transition-colors" placeholder="0.00" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs opacity-70 mb-2 uppercase tracking-wider">Note (Optional)</label>
+                    <input type="text" id="input-note" class="w-full bg-black/20 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/20 outline-none focus:border-white/50 transition-colors" placeholder="E.g., Lunch, Salary, Coffee...">
+                </div>
+
+                <button type="submit" id="btn-submit" class="theme-accent w-full py-4 mt-4 rounded-xl font-bold text-lg shadow-lg flex justify-center items-center gap-2 transition-transform transform active:scale-95">
+                    <i data-lucide="check-circle-2" class="w-6 h-6"></i> <span id="form-btn-label">Save Expense</span>
+                </button>
+            </form>
+
+            <!-- HISTORY VIEW -->
+            <div id="view-history" class="hidden space-y-4">
+                <div class="flex gap-2 mb-4">
+                    <button id="hist-current" onclick="setHistoryFilter('current')" class="hist-btn theme-accent flex-1 py-2 rounded-lg text-sm transition-colors">This Month</button>
+                    <button id="hist-last" onclick="setHistoryFilter('last')" class="hist-btn flex-1 py-2 rounded-lg text-sm transition-colors bg-black/20">Last Month</button>
+                </div>
+                <div id="history-container" class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                    <!-- History items injected here by JS -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- STATE ---
+        const state = {
+            scriptUrl: 'https://script.google.com/macros/s/AKfycbzlkqGWFno8B3jp6M4TXALLlQKWKFW_2dLYhl70Zww_kj5SWBYLqDoYUKHTRpk5hLtAgQ/exec',
+            activeTab: 'outcome', // 'income', 'outcome', 'history'
+            currency: 'MMK', // MMK, THB, USD
+            isLoading: false,
+            transactions: [],
+            budgetSettings: {
+                monthlyBudget: 0,
+                rates: { THB: 90, USD: 3300 }
+            },
+            shownPopups: { half: false, almost: false },
+            historyFilter: 'current'
+        };
+
+        // Initialize icons
+        lucide.createIcons();
+
+        // --- THEME UTILS ---
+        function getTheme(percent) {
+            if (percent >= 100) return { body: "theme-blink text-white", card: "bg-black/30 border-white/20", accent: "bg-white text-black hover:bg-gray-200" };
+            if (percent >= 80) return { body: "bg-red-950 text-red-50", card: "bg-red-900/50 border-red-800", accent: "bg-red-600 hover:bg-red-500" };
+            if (percent >= 50) return { body: "bg-orange-950 text-orange-50", card: "bg-orange-900/50 border-orange-800", accent: "bg-orange-500 hover:bg-orange-400" };
+            return { body: "bg-indigo-950 text-indigo-50", card: "bg-indigo-900/50 border-indigo-800", accent: "bg-purple-600 hover:bg-purple-500" };
+        }
+
+        let currentTheme = getTheme(0);
+
+        function formatMoney(amountInMMK) {
+            let converted = amountInMMK;
+            let symbol = 'Ks';
+            if (state.currency === 'THB') {
+                converted = amountInMMK / state.budgetSettings.rates.THB;
+                symbol = '฿';
+            } else if (state.currency === 'USD') {
+                converted = amountInMMK / state.budgetSettings.rates.USD;
+                symbol = '$';
+            }
+            return `${symbol} ${converted.toLocaleString(undefined, { minimumFractionDigits: state.currency === 'MMK' ? 0 : 2, maximumFractionDigits: 2 })}`;
+        }
+
+        // --- MAIN RENDER CYCLE ---
+        function updateUI() {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            const isSameDay = (d1, d2) => {
+                const date1 = new Date(d1); const date2 = new Date(d2);
+                return date1.getDate() === date2.getDate() && date1.getMonth() === date2.getMonth() && date1.getFullYear() === date2.getFullYear();
+            };
+            
+            const isSameMonth = (d1, month, year) => {
+                const date1 = new Date(d1);
+                return date1.getMonth() === month && date1.getFullYear() === year;
+            };
+
+            // Calculations
+            const currentMonthTransactions = state.transactions.filter(t => isSameMonth(t.date, currentMonth, currentYear));
+            const totalIncomeThisMonth = currentMonthTransactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + t.amount, 0);
+            const totalOutcomeThisMonth = currentMonthTransactions.filter(t => t.type === 'Outcome').reduce((sum, t) => sum + t.amount, 0);
+
+            const baseMonthlyBudget = state.budgetSettings.monthlyBudget;
+            const adjustedMonthlyBudget = baseMonthlyBudget + totalIncomeThisMonth;
+            const remainingMonthlyBalance = adjustedMonthlyBudget - totalOutcomeThisMonth;
+            const weeklyBudget = adjustedMonthlyBudget / 4;
+            const dailyBudgetLimit = adjustedMonthlyBudget / 30;
+
+            const dailyExpense = state.transactions.filter(t => t.type === 'Outcome' && isSameDay(t.date, now)).reduce((sum, t) => sum + t.amount, 0);
+            const dailyUsagePercent = dailyBudgetLimit > 0 ? (dailyExpense / dailyBudgetLimit) * 100 : 0;
+
+            // Themes
+            const newTheme = getTheme(dailyUsagePercent);
+            document.getElementById('app-body').className = `bg-indigo-950 text-indigo-50 min-h-screen font-sans transition-colors duration-500 flex flex-col items-center py-8 px-4 ${newTheme.body}`;
+
+            document.querySelectorAll('.theme-card').forEach(el => {
+                el.classList.remove(...currentTheme.card.split(' '));
+                el.classList.add(...newTheme.card.split(' '));
+            });
+
+            document.querySelectorAll('.theme-accent').forEach(el => {
+                el.classList.remove(...currentTheme.accent.split(' '));
+                el.classList.add(...newTheme.accent.split(' '));
+            });
+            currentTheme = newTheme;
+
+            // Popups
+            if (dailyUsagePercent >= 80 && dailyUsagePercent < 100 && !state.shownPopups.almost) {
+                showModal("Your daily budget is almost limited!", "danger");
+                state.shownPopups.almost = true;
+            } else if (dailyUsagePercent >= 50 && dailyUsagePercent < 80 && !state.shownPopups.half) {
+                showModal("You have already used half of your Daily budget.", "warning");
+                state.shownPopups.half = true;
+                state.shownPopups.almost = false;
+            }
+
+            // Dashboard texts
+            document.getElementById('balance-val').innerText = formatMoney(remainingMonthlyBalance);
+            document.getElementById('total-limit-val').innerText = formatMoney(adjustedMonthlyBudget);
+            document.getElementById('month-income-val').innerText = `+${formatMoney(totalIncomeThisMonth)}`;
+            document.getElementById('weekly-limit-val').innerText = formatMoney(weeklyBudget);
+            document.getElementById('daily-limit-val').innerText = formatMoney(dailyBudgetLimit);
+            document.getElementById('daily-expense-val').innerText = formatMoney(dailyExpense);
+            
+            // Progress Bar
+            const pb = document.getElementById('progress-bar');
+            pb.style.width = `${Math.min(dailyUsagePercent, 100)}%`;
+            pb.className = `h-full transition-all duration-700 rounded-full ${dailyUsagePercent >= 100 ? 'bg-red-500' : dailyUsagePercent >= 80 ? 'bg-orange-500' : dailyUsagePercent >= 50 ? 'bg-yellow-500' : 'bg-purple-400'}`;
+            
+            const usageVal = document.getElementById('daily-usage-val');
+            usageVal.innerText = `${dailyUsagePercent.toFixed(1)}%`;
+            usageVal.className = `text-xl font-black ${dailyUsagePercent >= 100 ? 'text-red-400' : dailyUsagePercent >= 80 ? 'text-orange-400' : ''}`;
+
+            // Currency Indicators
+            document.getElementById('currency-label').innerText = state.currency;
+            document.getElementById('currency-symbol').innerText = state.currency === 'MMK' ? 'Ks' : state.currency === 'THB' ? '฿' : '$';
+            document.getElementById('lbl-amount').innerText = `AMOUNT (${state.currency})`;
+
+            // Tabs UI
+            document.getElementById('view-form').classList.toggle('hidden', state.activeTab === 'history');
+            document.getElementById('view-history').classList.toggle('hidden', state.activeTab !== 'history');
+
+            ['outcome', 'income', 'history'].forEach(tab => {
+                const btn = document.getElementById(`tab-${tab}`);
+                if (state.activeTab === tab) {
+                    btn.className = `tab-btn theme-accent flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${newTheme.accent}`;
+                } else {
+                    btn.className = `tab-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/10 opacity-70 hover:opacity-100`;
+                }
+            });
+
+            // Form dynamic labels
+            if (state.activeTab !== 'history') {
+                const isIncome = state.activeTab === 'income';
+                document.getElementById('form-title').innerText = `Add ${isIncome ? 'Income' : 'Expense'}`;
+                document.getElementById('form-btn-label').innerText = `Save ${isIncome ? 'Income' : 'Expense'}`;
+            }
+
+            // History Filter UI
+            ['current', 'last'].forEach(f => {
+                const btn = document.getElementById(`hist-${f}`);
+                if (state.historyFilter === f) {
+                    btn.className = `hist-btn theme-accent flex-1 py-2 rounded-lg text-sm transition-colors ${newTheme.accent}`;
+                } else {
+                    btn.className = `hist-btn flex-1 py-2 rounded-lg text-sm transition-colors bg-black/20`;
+                }
+            });
+
+            // History List Builder
+            if (state.activeTab === 'history') {
+                const targetMonth = state.historyFilter === 'current' ? currentMonth : (currentMonth === 0 ? 11 : currentMonth - 1);
+                const targetYear = state.historyFilter === 'current' ? currentYear : (currentMonth === 0 ? currentYear - 1 : currentYear);
+                
+                const filtered = state.transactions
+                    .filter(t => isSameMonth(t.date, targetMonth, targetYear))
+                    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                const container = document.getElementById('history-container');
+                if (filtered.length === 0) {
+                    container.innerHTML = '<p class="text-center opacity-50 py-8">No transactions found.</p>';
+                } else {
+                    container.innerHTML = filtered.map(t => `
+                        <div class="theme-card p-4 rounded-xl border flex justify-between items-center ${newTheme.card}">
+                            <div>
+                                <p class="font-semibold">${t.note || 'No note'}</p>
+                                <p class="text-xs opacity-70">${new Date(t.date).toLocaleDateString()} ${new Date(t.date).toLocaleTimeString()}</p>
+                            </div>
+                            <div class="font-bold ${t.type === 'Income' ? 'text-green-400' : 'text-red-400'}">
+                                ${t.type === 'Income' ? '+' : '-'}${formatMoney(t.amount)}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Lock submit if loading
+            document.getElementById('btn-submit').disabled = state.isLoading;
+        }
+
+        // --- ACTIONS ---
+        window.setTab = (tabId) => {
+            state.activeTab = tabId;
+            updateUI();
+        };
+
+        window.setHistoryFilter = (filter) => {
+            state.historyFilter = filter;
+            updateUI();
+        };
+
+        window.cycleCurrency = () => {
+            const currencies = ['MMK', 'THB', 'USD'];
+            const nextIdx = (currencies.indexOf(state.currency) + 1) % currencies.length;
+            state.currency = currencies[nextIdx];
+            updateUI();
+        };
+
+        window.showModal = (message, type) => {
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-content').className = `max-w-sm w-full rounded-2xl p-6 shadow-2xl text-center transform scale-100 transition-all ${type === 'danger' ? 'bg-red-800 text-white' : 'bg-orange-600 text-white'}`;
+            document.getElementById('modal').classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('modal').classList.add('hidden');
+            state.popup = null;
+        };
+
+        // --- DATA BINDING ---
+        async function fetchData() {
+            if (!state.scriptUrl || !state.scriptUrl.startsWith('http')) return;
+            state.isLoading = true; updateUI();
+            
+            try {
+                const response = await fetch(state.scriptUrl);
+                const data = await response.json();
+                
+                if (data.settings) {
+                    state.budgetSettings.monthlyBudget = Number(data.settings.monthlyBudget) || 0;
+                    state.budgetSettings.rates.THB = Number(data.settings.rateTHB) || 90;
+                    state.budgetSettings.rates.USD = Number(data.settings.rateUSD) || 3300;
+                }
+                if (data.transactions) {
+                    state.transactions = data.transactions.map(t => ({
+                        ...t,
+                        date: t.date ? new Date(t.date) : new Date(),
+                        amount: Number(t.amount)
+                    }));
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            } finally {
+                state.isLoading = false;
+                updateUI();
+            }
+        }
+
+        window.handleTransactionSubmit = async (e) => {
+            e.preventDefault();
+            const inputAmount = document.getElementById('input-amount').value;
+            const inputNote = document.getElementById('input-note').value;
+            
+            if (!inputAmount || isNaN(inputAmount)) return;
+
+            let amountInMMK = Number(inputAmount);
+            if (state.currency === 'THB') amountInMMK = amountInMMK * state.budgetSettings.rates.THB;
+            if (state.currency === 'USD') amountInMMK = amountInMMK * state.budgetSettings.rates.USD;
+
+            const newTx = {
+                type: state.activeTab === 'income' ? 'Income' : 'Outcome',
+                amount: amountInMMK,
+                note: inputNote,
+                date: new Date()
+            };
+
+            // Optimistic Update
+            state.transactions.push(newTx);
+            document.getElementById('input-amount').value = '';
+            document.getElementById('input-note').value = '';
+            updateUI();
+
+            if (state.scriptUrl && state.scriptUrl.startsWith('http')) {
+                try {
+                    await fetch(state.scriptUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(newTx)
+                    });
+                    fetchData(); // Sync
+                } catch (error) {
+                    console.error("Failed to sync:", error);
+                }
+            }
+        };
+
+        // Start
+        updateUI();
+        fetchData();
+
+    </script>
+</body>
+</html>
